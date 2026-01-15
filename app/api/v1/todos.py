@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi_pagination import paginate, Page
 
 
-from app.schemas.todos import TaskRequest, TaskResponse
+from app.schemas.todos import TaskRequest, TaskResponse, TaskSortParams
 from app.schemas.users import UserRead
 from app.services.todo_service import TodoService
 from app.api.deps import get_active_user
@@ -22,9 +22,11 @@ async def create_task(
 
 @router.get("", response_model=Page[TaskResponse])
 async def get_all_tasks(
-    current_user: Annotated[UserRead, Depends(get_active_user)]
+    current_user: Annotated[UserRead, Depends(get_active_user)],
+    sort_params: Annotated[TaskSortParams, Depends()],
+    filter_text: str | None = None
 ):
-    return paginate(await TodoService.get_all_tasks_service(current_user))
+    return paginate(await TodoService.get_all_tasks_service(current_user, sort_params, filter_text))
 
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_specific_task(

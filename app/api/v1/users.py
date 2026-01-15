@@ -27,7 +27,7 @@ async def get_user_details(
     print("Inside api endpoint get_logged_in_user")
     return current_user
 
-@router.get('/{user_id}', response_model=UserRead)
-async def get_specific_user(user_id: int):
-    return await UserService.get_user_by_user_id(user_id)
+@router.get('/{username}', response_model=UserRead)
+async def get_specific_user(username: str):
+    return await UserService.get_user_by_username(username)
 

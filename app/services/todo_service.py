@@ -1,8 +1,8 @@
 from fastapi import HTTPException,status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, or_
 from app.db.session import engine
 
-from app.schemas.todos import TaskRequest, TaskResponse
+from app.schemas.todos import TaskRequest, TaskResponse, TaskSortParams
 from app.models.todos import Todo
 from app.schemas.users import UserRead
 
@@ -49,10 +49,10 @@ class TodoService:
         return True
     
     @staticmethod
-    async def get_all_tasks_service(current_user: UserRead):
+    async def get_all_tasks_service(current_user: UserRead, sort_params: TaskSortParams, filter_text: str | None = None):
 
         with Session(engine) as session:
-            tasks_by_user: list[Todo] = await TodoService.get_tasks_by_user(session, current_user)
+            tasks_by_user: list[Todo] = await TodoService.get_tasks_by_user(session, current_user, sort_params, filter_text)
 
         tasks_schema_by_user = []
 
@@ -62,9 +62,23 @@ class TodoService:
         return tasks_schema_by_user
     
     @staticmethod
-    async def get_tasks_by_user(session: Session, current_user: UserRead):
+    async def get_tasks_by_user(session: Session, current_user: UserRead, sort_params: TaskSortParams, filter_text: str | None = None):
 
         statement = select(Todo).where(Todo.user_id == current_user.id)
+
+        if filter_text:
+            statement = statement.where(or_(
+                Todo.title.ilike(f"%{filter_text}%"),
+                Todo.description.ilike(f"%{filter_text}%")
+            ))
+        
+        if sort_params.sort_by:
+            column = getattr(Todo, sort_params.sort_by)
+            if sort_params.order_by == "asc":
+                statement = statement.order_by(column.asc())
+            else:
+                statement = statement.order_by(column.desc())
+        
         tasks_by_user: list[Todo] = session.exec(statement).all()
 
         if not tasks_by_user:

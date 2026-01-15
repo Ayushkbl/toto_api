@@ -44,10 +44,10 @@ class UserService:
         )
     
     @staticmethod
-    async def get_user_by_user_id(user_id: int):
+    async def get_user_by_username(username: int):
         
         with Session(engine) as session:
-            model_user: User = session.exec(select(User).where(User.id == user_id)).first()
+            model_user: User = session.exec(select(User).where(User.username == username)).first()
         
         if not model_user:
             raise HTTPException(
