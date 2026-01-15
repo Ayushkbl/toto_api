@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Form, Depends
 from typing import Annotated
+from fastapi_pagination import Page, paginate
 
 from app.schemas.users import UserCreate, UserRead
 from app.services.user_service import UserService
@@ -15,9 +16,9 @@ router = APIRouter(
 async def create_user(new_user: Annotated[UserCreate, Form()]):
     return await UserService.create_user(new_user)
 
-@router.get('', response_model=list[UserRead])
+@router.get('', response_model=Page[UserRead])
 async def get_all_users():
-    return await UserService.get_all_users()
+    return paginate(await UserService.get_all_users())
 
 @router.get('/me', response_model=UserRead)
 async def get_user_details(
