@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, status, Body
 from typing import Annotated
+from fastapi_pagination import paginate, Page
+
 
 from app.schemas.todos import TaskRequest, TaskResponse
 from app.schemas.users import UserRead
@@ -18,11 +20,11 @@ async def create_task(
 ):
     return await TodoService.create_task_service(new_task, current_user)
 
-@router.get("", response_model=list[TaskResponse])
+@router.get("", response_model=Page[TaskResponse])
 async def get_all_tasks(
     current_user: Annotated[UserRead, Depends(get_active_user)]
 ):
-    return await TodoService.get_all_tasks_service(current_user)
+    return paginate(await TodoService.get_all_tasks_service(current_user))
 
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_specific_task(
