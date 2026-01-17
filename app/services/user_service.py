@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, or_
+from sqlalchemy.exc import IntegrityError
 
 from app.db.session import engine
 from app.schemas.users import UserCreate, UserRead
@@ -10,15 +11,36 @@ class UserService:
 
     @staticmethod
     async def create_user(new_user: UserCreate):
-        print(f"New User password: {new_user.password.get_secret_value()}")
-        print(f"Type of New User Passsword: {type(new_user.password.get_secret_value())}")
-        
-        model_user: User = await UserService.create_model_from_schema(new_user)
 
-        with Session(engine) as session:
-            session.add(model_user)
-            session.commit()
-            session.refresh(model_user)
+        try:
+            with Session(engine) as session:
+                await UserService.check_unique_data(session, new_user)
+
+                model_user: User = await UserService.create_model_from_schema(new_user)
+
+                session.add(model_user)
+                session.commit()
+                session.refresh(model_user)
+        except IntegrityError as e:
+            session.rollback()
+
+            error_msg = str(e.orig).lower()
+            print(error_msg)
+
+            if "username" in error_msg:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"The username: '{new_user.username}' is already taken up. Please select a different username."
+                )
+            if "email" in error_msg:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"The email: '{new_user.email}' is already taken up. Please select a different username."
+                )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unique Constraint Violation"
+            )
 
         return await UserService.create_schema_from_model(model_user)
         
@@ -75,3 +97,29 @@ class UserService:
             all_schema_users.append(await UserService.create_schema_from_model(user))
         
         return all_schema_users
+    
+    @staticmethod
+    async def check_unique_data(session: Session, new_user: UserCreate) -> bool:
+
+        statement = select(User).where(or_(
+            User.username == new_user.username,
+            User.email == new_user.email
+        ))
+        model_user = session.exec(statement).first()
+
+        print(f"Username : {model_user.username}")
+        print(f"Email: {model_user.email}")
+
+        if model_user:
+            if model_user.username == new_user.username:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"The username: '{new_user.username}' is already taken up. Please select a different username."
+                )
+            if model_user.email == new_user.email:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"The email: '{new_user.email}' is already taken up. Please select a different email"
+                )
+        
+        return True
